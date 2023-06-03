@@ -1,0 +1,600 @@
+### Check from other notes how to SSH to Ubuntu Server ###
+
+1. Check the EBS volume of ec2
+	df -h
+
+2.Check wget or 
+sudo apt install wget
+
+3.Check JDK
+java -version
+javac -version
+1.8.0_312
+sudo apt-get install openjdk-8-jdk -y
+
+4.Password less login
+ - ls -ltr ~/.ssh 
+Run command to generate Public-private key:
+ - ssh-keygen
+ - Just press Enter
+
+5.ls -ltr ~/.ssh again
+id_rsa 		= private
+id_rsa.pub 	= public
+
+6.Copy id_rsa to authorized_keys
+ - cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+
+7.To validate - enter ssh localhost 
+it will log into another session
+exit 
+logout
+
+8.install Hadoop from the link below or the latest version
+wget https://mirrors.gigenet.com/apache/hadoop/common/hadoop-3.3.0/hadoop-3.3.0.tar.gz
+
+tar xzf hadoop-3.3.0.tar.gz
+
+9.Check that hadoop is installed using - ls -ltr and check hadoop folders
+
+10.Remove Tar ball
+rm hadoop-3.3.0.tar.gz
+
+11.Move Hadoop folder to /opt and set permissions to the ubuntu user
+sudo mv -f hadoop-3.3.0 /opt
+sudo chown ${USER}:${USER} -R /opt/hadoop-3.3.0    	- Change Ownership
+sudo ln -s /opt/hadoop-3.3.0 /opt/hadoop 		- Set soft link
+ls -ltr /opt
+
+12.Update /opt/hadoop/etc/hadoop/core-site.xml
+nano /opt/hadoop/etc/hadoop/core-site.xml
+<configuration>
+	<property>
+		<name>fs.defaultFS</name>
+		<value>hdfs://localhost:9000</value>
+	</property>
+</configuration>
+
+13.Update /opt/hadoop/etc/hadoop/hdfs-site.xml
+nano /opt/hadoop/etc/hadoop/hdfs-site.xml
+<configuration>
+	<property>
+		<name>dfs.namenode.name.dir</name>
+		<value>/opt/hadoop/dfs/name</value>
+	</property>
+	<property>
+		<name>dfs.namenode.checkpoint.dir</name>
+		<value>/opt/hadoop/dfs/namesecondary</value>
+	</property>
+	<property>
+		<name>dfs.namenode.data.dir</name>
+		<value>/opt/hadoop/dfs/data</value>
+	</property>
+	<property>
+		<name>dfs.replication</name>
+		<value>1</value>
+	</property>
+</configuration>
+
+14.Check Javahome and javac home
+ls -ltr /usr/lib/jvm/java-1.8.0-openjdk-amd64
+ls -ltr /usr/lib/jvm/java-1.8.0-openjdk-amd64/bin
+
+find /usr/lib/jvm -name javac
+
+15.Update .profile in the home directory
+nano .profile
+Add at the end- 
+export HADOOP_HOME=/opt/hadoop
+export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+
+16.logout/exit and login again and check using command - 
+- env
+if the PATH has been set
+
+echo $JAVA_HOME
+
+17.Update /opt/hadoop/etc/hadoop/hadoop-env.sh
+nano /opt/hadoop/etc/hadoop/hadoop-env.sh
+Add at the end - 
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+export HADOOP_OS_TYPE=${HADOOP_OS_TYPE:-$(uname -s)}
+
+18.Format Hadoop
+hdfs namenode -format
+ls -ltr /opt/hadoop/dfs/
+
+
+19. echo $PATH
+
+20.ls -ltr /opt/hadoop/bin & ls -ltr /opt/hadoop/sbin as these contain the scripts to be executed for HDFS
+
+21.Check passwordless login 
+ssh ${USER}@localhost
+exit
+
+22.Start HDFS Nodes - namenodes, secondary namenodes, datanodes
+- start-dfs.sh
+
+23.Validate all components are running using 
+- jps
+#it will return:
+5195 SecondaryNameNode
+5357 Jps
+4750 NameNode
+4926 DataNode
+
+### Steps 24 to 31 are for validaing Hadoop ###
+24.To check anything available on hdfs - 
+- hdfs dfs -ls /
+
+25.Create folder in hadoop with logged username - ### ${USER} = logged in user 
+- hdfs dfs -mkdir -p /user/${USER}
+
+26.Check the created folder at Hadoop using 
+- hdfs dfs -ls /  or  
+- hdfs dfs -ls /user
+
+27.Copy all files from Local file system to HDFS
+first check files using - ls -ltr /opt/hadoop/etc/hadoop
+- hdfs dfs -put /opt/hadoop/etc/hadoop /user/${USER}
+
+28.Check the copied files using - 
+- hdfs dfs -ls /user/${USER}/hadoop
+
+29.Check for correct contents of any file using -  
+- hdfs dfs -cat /user/${USER}/hadoop/core-site.xml
+
+30.Remove the hadoop folder completely now - 
+- hdfs dfs -rm -R -skipTrash /user/${USER}/hadoop
+
+31.Check that hadoop folder does not exist now - 
+- hdfs dfs -ls /user/${USER} 
+
+32.Configure YARN file - nano /opt/hadoop/etc/hadoop/yarn-site.xml and clean the contents and add - 
+<configuration>
+	<property>
+		<name>yarn.nodemanager.aux-services</name>
+		<value>mapreduce_shuffle</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.env-whitelist</name>
+		<value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value>
+	</property>
+</configuration>
+
+33.Configure YARN file - nano /opt/hadoop/etc/hadoop/mapred-site.xml - clear contents and add -
+<configuration>
+	<property>
+		<name>mapreduce.framework.name</name>
+		<value>yarn</value>
+	</property>
+	<property>
+		<name>mapreduce.application.classpath</name>
+		<value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*:$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
+	</property>
+</configuration>
+
+34.Check that start-yarn shell command is available - 
+- ls -ltr /opt/hadoop/sbin/start*
+
+35.Start YARN on hadoop
+- start-yarn.sh
+#It will show:
+Starting resourcemanager
+Starting nodemanagers
+
+36.Check using jps that everything is running 
+- jps
+It will show:
+9399 Jps
+8775 ResourceManager
+5195 SecondaryNameNode
+4750 NameNode
+4926 DataNode
+8959 NodeManager
+
+37.Shutdown YARN
+- stop-yarn.sh
+
+37.Shutdown HDFS cluster
+- stop-dfs.sh
+
+38. Check using jps that hadoop/yarn are not available
+- jps
+
+39. After shutting down -Yarn -Hadoop rspectively, only then shutdown server
+
+40.While starting server, start -Server -Hadoop -Yarn respectively
+ - start-dfs.sh
+ - start-yarn.sh
+
+
+### Working on datasets
+41.Copy sales data from git or your local machine
+
+ls -ltr sales
+
+42.Create folder data/sales and copy the git contents here
+- sudo rm -rf /data/sales
+- sudo mkdir -p /data/sales
+
+43.Copy one folder at a time 
+sudo cp -rf sales/departments /data/sales
+sudo cp -rf sales/customers /data/sales
+sudo cp -rf sales/orders /data/sales
+sudo cp -rf sales/order_items /data/sales
+sudo cp -rf sales/categories /data/sales
+sudo cp -rf sales/products /data/sales
+
+44.Create folder in Hadoop
+- hdfs dfs -mkdir -p /public/sales
+- hdfs dfs -ls /public/sales
+
+45.Copy sales to Hadoop
+- hdfs dfs -put /data/sales/* /public/sales
+- hdfs dfs -ls /public/sales
+- hdfs dfs -find /public/sales
+- hdfs dfs -cat /public/sales/departments/part-00000
+
+46.Install Hive
+Go to apache.claz.org - it has mirros for hive ---- link not working now
+Get the latest link and run -  
+- wget https://apache.claz.org/hive/hive-3.1.2/apache-hive-3.1.2-bin.tar.gz
+
+****This is the working link 
+- wget https://downloads.apache.org/hive/hive-3.1.2/apache-hive-3.1.2-bin.tar.gz
+
+47.Unzip the Hive tar file
+- tar xzf apache-hive-3.1.2-bin.tar.gz
+
+48.Check that a new folder is created using= ls -ltr
+apache-hive-3.1.2-bin
+
+49.Move this new folder to /opt and check
+- sudo mv -f apache-hive-3.1.2-bin /opt
+- ls -ltr /opt
+
+50.Create softlink/alias name for the new folder
+- sudo ln -s /opt/apache-hive-3.1.2-bin /opt/hive
+
+51.Install Hive Metastore
+- Hive needs a Hive Metastore
+- Hive Metastore is a table preferably in Postgres
+- We need to install Postgres on docker and use it as Hive Metastore
+
+52.Check that user is part of docker group
+- id ubuntu or id ${USER}
+uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),4(adm),20(dialout),24(cdrom),25(floppy),27(sudo),29(audio),30(dip),44(video),46(plugdev),108(lxd),114(netdev),999(docker)
+### if (docker) is not returned, user needs to be set up for docker group
+
+53.Add USer to docker group
+- sudo usermod -aG docker ${USER}
+- logout and login again to take effect
+
+54.Check all the docker containers
+- docker ps -a
+
+55.Install Postgres docker
+docker pull postgres:13
+docker create --name cluster_util_db -p 6432:5432 -e POSTGRES_PASSWORD=ubuntu postgres:13
+or 
+ docker create \
+--name cluster_util_db \
+ -p 6432:5432 \
+ -e POSTGRES_PASSWORD=mdifils \
+ -e POSTGRES_HOST_AUTH_METHOD=md5 \
+ -e POSTGRES_INITDB_ARGS=--auth-host=md5 \
+
+56.Start postgres container
+docker start cluster_util_db
+
+57.Check logs
+docker logs -f cluster_util_db
+Ctrl C to exit
+
+58.Check connectivity to Postgres
+docker exec -it cluster_util_db psql -U postgres
+\q to come out
+
+59.Check connection externally
+telnet localhost 6432
+^] to quit
+
+60.Create metastore and User in Postgres
+docker exec -it cluster_util_db psql -U postgres 
+CREATE DATABASE metastore;
+CREATE USER hive WITH ENCRYPTED PASSWORD 'sunny';
+GRANT ALL ON DATABASE metastore TO hive;
+\q
+
+61.Install Postgres client on the server
+sudo apt install postgresql-client -y
+
+62.Connect to postgres using client
+psql -h localhost -p 6432 -d metastore -U hive -W
+\d to list the tables
+\q
+
+63.Set hive parameters as environment variables at .profile
+nano .profile  and copy - 
+export HIVE_HOME=/opt/hive
+export PATH=$PATH:${HIVE_HOME}/bin
+logout/login server to take effect
+
+64.Configure Hive at /opt/hive/conf/hive-site.xml
+Check for file using ls -ltr /opt/hive/conf/
+Create file - vi or nano /opt/hive/conf/hive-site.xml
+and copy
+<configuration>
+	<property>
+		<name>javax.jdo.option.ConnectionURL</name>
+		<value>jdbc:postgresql://localhost:6432/metastore</value>
+		<description>PSQL JDBC driver connection URL</description>
+	</property>
+         <property>
+		<name>javax.jdo.option.ConnectionDriverName</name>
+		<value>org.postgresql.Driver</value>
+		<description>PSQL metastore driver class name</description>
+	</property>
+	<property>
+		<name>javax.jdo.option.ConnectionUserName</name>
+		<value>hive</value>
+		<description>username for db instance</description>
+	</property>
+        <property>
+		<name>javax.jdo.option.ConnectionPassword</name>
+		<value>sunny</value>
+		<description>password for db instance</description>
+	</property>
+        
+</configuration>
+
+65.Check the JAR files related to PSQL
+ls -ltr /opt/hive/lib|grep postgres
+-rw-r--r-- 1 ubuntu ubuntu   645268 Sep 26  2018 postgresql-9.4.1208.jre7.jar
+-rw-r--r-- 1 ubuntu ubuntu     8463 Nov 15  2018 postgresql-metadata-storage-0.12.0.jar
+
+66.Check hive
+hive
+It will give error as different JAR file
+
+67.Remove Hive JAR file at /opt/hive/lib/guava-19.0.jar
+Check - ls -ltr /opt/hive/lib/guava*.jar
+- rm /opt/hive/lib/guava-19.0.jar
+
+68.Copy guava JAR from /opt/hadoop/share/hadoop/hdfs/lib/guava-27.0-jre.jar
+Check and copy
+- cp /opt/hadoop/share/hadoop/hdfs/lib/guava-27.0-jre.jar /opt/hive/lib/
+
+69.Check running dbs on hive
+hive
+SHOW databases;
+quit;
+If error - java.lang.RuntimeException: Unable to instantiate org.apache.hadoop.hive.ql.metadata.SessionHiveMetaStoreClient, 
+go to step 70
+
+For Safemode Error while running Hive:
+hdfs dfsadmin -safemode leave
+
+70.Initialize Schema
+- schematool -dbType postgres -initSchema
+Initialization script completed
+schemaTool completed
+
+71.Verify Hive Metadata
+- psql -h localhost -p 6432 -d metastore -U hive -W
+\d to list the tables of the Hive Metastore
+
+
+72.Create Table in Hive
+- hive
+- SHOW databases;
+- CREATE DATABASE sales;
+- USE sales;
+- SELECT current_database();
+- CREATE TABLE orders (
+	order_id INT,
+	order_date STRING,
+	order_customer_id INT,
+	order_status STRING
+	) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+
+- LOAD DATA LOCAL INPATH '/data/sales/orders' INTO TABLE orders;
+- DESCRIBE FORMATTED orders; - it retrieves info from Hive Metastore
+- hdfs dfs -ls /user/hive/warehouse/sales.db/orders  -  To check this table from main command prompt
+or
+- dfs -ls /user/hive/warehouse/sales.db/orders; - from hive cli
+- SELECT * FROM orders LIMIT 10;
+- SELECT count(1) from orders;
+- exit;
+
+73.Baseline script - stop_all.sh
+vi stop_all.sh
+stop-yarn.sh
+stop-dfs.sh
+jps
+
+74.Baseline scripts - start_all.sh
+start-dfs.sh
+start-yarn.sh
+docker start cluster_util_db
+jps
+docker ps
+
+75.As soon as you login to server
+source start_all.sh
+
+76.When you want to stop
+source stop_all.sh
+
+77.Download Spark from spark.apache.org and copy the latest link
+wget https://dlcdn.apache.org/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz
+
+78.Unzip Spark
+tar xzf spark-3.2.0-bin-hadoop3.2.tgz
+sudo mv -f spark-3.2.0-bin-hadoop3.2.tgz /opt
+sudo mv -f spark-3.2.0-bin-hadoop3.2 /opt
+ls -ltr /opt    to check
+sudo ln -s /opt/spark-3.2.0-bin-hadoop3.2 /opt/spark3
+
+79.Set spark with hadoop at nano /opt/spark3/conf/spark-env.sh
+export HADOOP_HOME="/opt/hadoop"
+export HADOOP_CONF_DIR="/opt/hadoop/etc/hadoop"
+
+80.Set here - nano /opt/spark3/conf/spark-defaults.conf
+spark.driver.extraJavaOptions		-Dderby.system.home=/tmp/derby/
+spark.sql.repl.eagerEval.enabled	true
+spark.master				yarn
+spark.eventLog.enabled			true
+spark.eventLog.dir			hdfs:///spark3-logs
+spark.history.provider			org.apache.spark.deploy.history.FsHistoryProvider
+spark.history.fs.logDirectory		hdfs:///spark3-logs
+spark.history.fs.update.interval	10s
+spark.history.ui.port			18080
+spark.yarn.historyServer.address	localhost:18080
+spark.yarn.jars				hdfs:///spark3-jars/*.jar
+
+81.Update - vi /opt/hive/conf/hive-site.xml
+<property>
+<name>hive.metastore.schema.verification</name>
+<value>false</value>
+</property>
+
+
+82.Add Folders for spark to Hadoop
+- jps  - to make sure hadoop is running
+- hdfs dfs -mkdir /spark3-jars
+- hdfs dfs -mkdir /spark3-logs
+- ls -ltr /opt/spark3/jars 
+- hdfs dfs -put /opt/spark3/jars/* /spark3-jars
+- hdfs dfs -ls /spark3-jars
+
+83.Create alias for Spark
+sudo ln -s /opt/hive/conf/hive-site.xml /opt/spark3/conf/
+
+84.Download postgres jdbc driver
+wget https://jdbc.postgresql.org/download/postgresql-42.3.1.jar -O /opt/spark3/jars/postgresql-42.3.1.jar
+
+85.Connect to hive using  - hive
+- SHOW databases;
+- USE sales;
+- SHOW tables;
+- SELECT * FROM orders LIMIT 10;
+- SELECT count(1) FROM orders;
+- exit;
+
+86.Do the same things using - spark 2 
+- /opt/spark3/bin/spark-shell --master yarn --conf spark.ui.port=0
+
+It will login to Scala
+- spark.sql("SHOW databases").show()
+- spark.sql("USE sales")
+- spark.sql("SELECT * FROM orders").show()
+- spark.sql("SELECT count(1) FROM orders")
+-quit
+
+87.Run - python3
+quit()
+
+88.Soft link for python3
+sudo rm -rf /usr/bin/python  
+sudo ln -s /usr/bin/python3 /usr/bin/python
+
+89.Use pyspark i.e. spark3
+- /opt/spark3/bin/pyspark --master yarn --conf spark.ui.port=0
+- spark.sql("SHOW databases").show()
+- spark.sql("SELECT count(1) FROM sales.orders").show()
+
+
+
+88.Use Spark SQL
+- /opt/spark3/bin/spark-sql --master yarn --conf spark.ui.port=0
+- SHOW databases;
+- SELECT count(1) FROM sales.orders
+- exit
+
+89.Run virtual environemnt
+- python -m venv spark-venv
+- source spark-venv/bin/activate
+
+90.Install Jupyter lab and run
+- pip install jupyterlab
+- jupyter lab --ip 0.0.0.0
+- Use your EC2 public ip with :8888 and run it on browser window.
+- Use toek generated by jupyter lab and use it to login to jupyter
+
+91.Check Kernel list on Jupyter
+- In virtual env, use command - jupyter kernelspec list
+
+92.Create new pyspark kernel
+- mkdir /home/ubuntu/spark-venv/share/jupyter/kernels/pyspark3 
+- Create kernel.json file
+{
+	"argv":["python", "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+	"display_name":"Pyspark",
+	"language":"python",
+	"env":{
+		"PYSPARK_PYTHON":"/usr/bin/python3",
+		"SPARK_HOME":"/opt/spark3/",
+		"SPARK_OPTS":"--master yarn --conf spark.ui.port=0",
+		"PYTHONPATH":"/opt/spark3/python/lib/py4j-0.10.9.2-src.zip:/opt/spark3/python/"
+	}
+}
+
+-Add Kernel
+jupyter kernelspec install /home/ubuntu/spark-venv/share/jupyter/kernels/pyspark3 --user
+
+93.Run commands on Jupyter lab to check
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.enableHiveSupport().appName('Demo').master('yarn').getOrCreate()
+
+
+94.Copy from Local to HDFS
+$ hdfs dfs -put -f /data/employee_db /public 
+
+95.Copy from HDFS to local
+$ hdfs dfs  -get /public/restored_db /data
+
+96.Get file and block metadata information on HDFS
+- $hdfs fsck /public/employee_db -files -blocks -locations
+Here, Average block replication:     3.0 - 3copies of block in 3 cluster worker nodes
+= A file is broken into max blocks of 128 MB
+
+= ../hadoop/conf/hdfs-site.xml file usually saves dfs.blocksize. 
+= If it is not there it means the default value of 128 MB is to be used.
+- dfs.replication 
+-Rack Awareness - covers hardware failures of the system
+
+- hdfs dfs -df (with -h) to get the current capacity and usage of HDFS.
+- hdfs dfs -du (-s=summary , -h=size in readable format MB, GB) get the size occupied by a given folder/file/
+
+- hdfs dfs -stat /public/employee_db
+Updation date 
+
+-  hdfs dfs -stat %b /public/employee_db/part-0000
+Size in bytes
+
+- hdfs dfs -stat %F /public/employee_db/part-0000
+regular file
+
+- hdfs dfs -stat  %F /public/employee_db
+directory
+
+- hdfs dfs -stat %o /public/employee_db/part-0000
+block size
+
+- hdfs dfs -stat %r /public/employee_db/part-0000
+replication factor
+
+- hdfs dfs -Ddfs.blocksize=64M =Ddfs.replication=3 -put /data/file.csv /user/${USER}/data/
+To change default file blocksize and replication factor 
+
+
+
+
+
+
+
+
